@@ -45,7 +45,7 @@ never installs anything on your Mac.
 
 1. Install Apple's command line tools if you have not: `xcode-select --install`
 2. Download this repository.
-3. Run `./bundle.sh` in the repository folder. The app appears in `~/Applications`.
+3. Run `./bundle.sh` in the repository folder. The app appears in `/Applications`.
 
 ### Using it
 

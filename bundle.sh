@@ -3,7 +3,7 @@ set -e
 
 ROOT="$(cd "$(dirname "$0")" && pwd)"
 APP_NAME="Logitech Onboard Memory Manager"
-DEST="${DEST:-$HOME/Applications}"
+DEST="${DEST:-/Applications}"
 APP="$DEST/$APP_NAME.app"
 
 swift build -c release --package-path "$ROOT"
