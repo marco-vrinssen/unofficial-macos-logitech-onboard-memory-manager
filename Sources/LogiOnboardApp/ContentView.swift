@@ -1,4 +1,5 @@
 import SwiftUI
+import AppKit
 import LogiHIDPP
 
 struct ContentView: View {
@@ -88,6 +89,8 @@ private struct DeviceList: View {
 private struct SettingsForm: View {
     @ObservedObject var service: MouseService
 
+    @State private var pendingRestore: PendingRestore?
+
     var body: some View {
         if let onboard = service.onboard {
             Form {
@@ -95,10 +98,25 @@ private struct SettingsForm: View {
                 sensitivitySection(onboard)
                 reportRateSection(onboard)
                 buttonSection
+                backupSection
                 memorySection
             }
             .formStyle(.grouped)
             .disabled(service.busy)
+            .confirmationDialog(
+                pendingRestore?.title ?? "",
+                isPresented: Binding(get: { pendingRestore != nil }, set: { if !$0 { pendingRestore = nil } }),
+                titleVisibility: .visible
+            ) {
+                Button("Overwrite the Mouse", role: .destructive) {
+                    pendingRestore?.action()
+                    pendingRestore = nil
+                }
+
+                Button("Cancel", role: .cancel) { pendingRestore = nil }
+            } message: {
+                Text("This replaces everything currently stored in the mouse.")
+            }
         } else {
             ContentUnavailableView(
                 "No Onboard Memory",
@@ -195,6 +213,52 @@ private struct SettingsForm: View {
         }
     }
 
+    private var backupSection: some View {
+        Section {
+            LabeledContent("Original settings") {
+                Button("Restore…") {
+                    pendingRestore = PendingRestore(title: "Put the mouse back to its original settings?") {
+                        service.restoreOriginal()
+                    }
+                }
+                .disabled(!service.baselineExists)
+            }
+
+            LabeledContent("Current settings") {
+                HStack(spacing: 8) {
+                    Button("Export…") { exportSettings() }
+                    Button("Import…") { importSettings() }
+                }
+            }
+        } header: {
+            Text("Backup")
+        } footer: {
+            Text("The app saved a copy of your mouse's settings the first time it connected, so there is always a way back. Export writes the current settings to a file you can keep or move to another computer, Import loads such a file onto the mouse.")
+        }
+    }
+
+    private func exportSettings() {
+        let panel = NSSavePanel()
+        panel.nameFieldStringValue = "mouse-settings.json"
+        panel.allowedContentTypes = [.json]
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        service.exportSettings(to: url)
+    }
+
+    private func importSettings() {
+        let panel = NSOpenPanel()
+        panel.allowedContentTypes = [.json]
+        panel.allowsMultipleSelection = false
+
+        guard panel.runModal() == .OK, let url = panel.url else { return }
+
+        pendingRestore = PendingRestore(title: "Load \(url.lastPathComponent) onto the mouse?") {
+            service.importSettings(from: url)
+        }
+    }
+
     private var memorySection: some View {
         Section {
             if let profile = service.profile {
@@ -216,6 +280,11 @@ private struct SettingsForm: View {
             Text("Your settings live on a small memory chip inside the mouse, which is why they work on any computer. The data check confirms the stored copy is undamaged. The raw view shows the exact bytes, you never need it, it is here for transparency.")
         }
     }
+}
+
+private struct PendingRestore {
+    let title: String
+    let action: () -> Void
 }
 
 // MARK: - Rows

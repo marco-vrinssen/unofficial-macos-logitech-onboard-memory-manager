@@ -39,6 +39,7 @@ final class MouseService: ObservableObject {
     @Published private(set) var onboard: OnboardState?
     @Published private(set) var profile: ProfileState?
     @Published private(set) var status = "Ready"
+    @Published private(set) var baselineExists = false
     @Published private(set) var busy = false
     @Published private(set) var selectedDeviceId: String?
     @Published private(set) var selectedProfile = 1
@@ -77,6 +78,7 @@ final class MouseService: ObservableObject {
 
             let index = self.readOnMain { $0.selectedProfile }
             let (state, profileState) = try self.readState(device, profiles, profileIndex: index)
+            let baselineSaved = self.captureBaselineIfMissing(device, profiles)
 
             self.publish {
                 self.devices = rows
@@ -84,7 +86,10 @@ final class MouseService: ObservableObject {
                 self.onboard = state
                 self.profile = profileState
                 self.selectedProfile = profileState?.slot.index ?? index
-                self.status = "Connected to \(device.info.name)"
+                self.baselineExists = self.baselineOnDisk(productId: device.info.productId)
+                self.status = baselineSaved
+                    ? "Connected to \(device.info.name), original settings saved for safekeeping"
+                    : "Connected to \(device.info.name)"
             }
         }
     }
@@ -250,6 +255,79 @@ final class MouseService: ObservableObject {
                 }
             }
         }
+    }
+
+    func restoreOriginal() {
+        restoreBackup(named: "the original settings") { device in
+            self.baselineURL(productId: device.info.productId)
+        }
+    }
+
+    func exportSettings(to url: URL) {
+        perform("Exporting your settings…") { [weak self] in
+            guard let self else { return }
+
+            try self.withDevice { device, profiles in
+                let file = try BackupFile.capture(from: device, profiles: profiles)
+                try file.write(to: url)
+
+                self.publish { self.status = "Settings exported as \(url.lastPathComponent)" }
+            }
+        }
+    }
+
+    func importSettings(from url: URL) {
+        restoreBackup(named: url.lastPathComponent) { _ in url }
+    }
+
+    /// Shared restore path so baseline and imported files behave identically.
+    private func restoreBackup(named label: String, _ source: @escaping (LogiDevice) -> URL) {
+        perform("Restoring \(label)…") { [weak self] in
+            guard let self else { return }
+
+            try self.withDevice { device, profiles in
+                let file = try BackupFile.read(from: source(device))
+                try file.check(against: device, profiles: profiles)
+
+                for (sector, content) in try file.decodedSectors() {
+                    try profiles.writeSector(sector, content: content)
+                }
+
+                let index = self.readOnMain { $0.selectedProfile }
+                let (state, profileState) = try self.readState(device, profiles, profileIndex: index)
+
+                self.publish {
+                    self.onboard = state
+                    self.profile = profileState
+                    self.status = "Restored \(label)"
+                }
+            }
+        }
+    }
+
+    private static let backupDirectory = FileManager.default
+        .urls(for: .applicationSupportDirectory, in: .userDomainMask)[0]
+        .appendingPathComponent("Logitech Onboard Memory Manager", isDirectory: true)
+
+    private func baselineURL(productId: Int) -> URL {
+        MouseService.backupDirectory.appendingPathComponent(String(format: "original-%04x.json", productId))
+    }
+
+    private func baselineOnDisk(productId: Int) -> Bool {
+        FileManager.default.fileExists(atPath: baselineURL(productId: productId).path)
+    }
+
+    /// Snapshot the untouched settings on first contact so a restore point always exists.
+    private func captureBaselineIfMissing(_ device: LogiDevice, _ profiles: OnboardProfiles) -> Bool {
+        let url = baselineURL(productId: device.info.productId)
+
+        guard !FileManager.default.fileExists(atPath: url.path) else { return false }
+
+        try? FileManager.default.createDirectory(at: MouseService.backupDirectory, withIntermediateDirectories: true)
+
+        guard let file = try? BackupFile.capture(from: device, profiles: profiles) else { return false }
+
+        return (try? file.write(to: url)) != nil
     }
 
     private func currentSelection(in rows: [DeviceRow]) -> String? {

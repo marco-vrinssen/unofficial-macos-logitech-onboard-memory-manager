@@ -37,6 +37,9 @@ app reads and edits that memory directly.
   including a second G-Shift layer.
 - **Transparency**: see the exact bytes stored in the mouse and a check that confirms
   they are undamaged.
+- **Safety net**: the app snapshots your mouse's settings the first time it connects,
+  so one click puts everything back the way it was. Settings can also be exported to a
+  file and imported on any Mac.
 
 Everything is written into the mouse itself and verified by reading it back. The app
 never installs anything on your Mac.
@@ -53,13 +56,10 @@ Open the app. Your mouse appears in the sidebar, its settings load automatically
 every change saves to the mouse the moment you make it. The status bar at the bottom
 tells you what is happening in plain language.
 
-Before experimenting, save a backup from the terminal:
-
-```sh
-lomm backup my-mouse-backup.json
-```
-
-`lomm` is the command line companion, installed with `./install.sh`.
+A restore point is created automatically the first time the app sees your mouse. The
+Backup section restores it, or exports and imports settings as files. The same works
+from the terminal via `lomm backup` and `lomm restore`, the CLI installs with
+`./install.sh`.
 
 ---
 
