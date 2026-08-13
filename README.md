@@ -1,4 +1,8 @@
-# Logitech Onboard Memory Manager for macOS
+# Unofficial Logitech Onboard Memory Manager for macOS
+
+**This is not official Logitech software.** It is an independent community tool with
+no affiliation to, endorsement by or support from Logitech. "Logitech", "G HUB" and
+related marks belong to Logitech and are used here only to describe compatibility.
 
 Edit the settings stored inside a Logitech gaming mouse, natively on macOS. No G HUB,
 no drivers, no background services.
@@ -9,7 +13,7 @@ no drivers, no background services.
 > connected through its Lightspeed receiver. It should work with other HID++ 2.0 mice
 > that use onboard profile format 6 or newer, but nobody has verified that yet. Writes
 > to unverified models are at your own risk. Take a backup first, the tool makes that
-> easy. This project is not affiliated with or endorsed by Logitech.
+> easy.
 
 ---
 
