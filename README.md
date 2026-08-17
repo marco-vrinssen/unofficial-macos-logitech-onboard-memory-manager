@@ -7,13 +7,12 @@ related marks belong to Logitech and are used here only to describe compatibilit
 Edit the settings stored inside a Logitech gaming mouse, natively on macOS. No G HUB,
 no drivers, no background services.
 
-> **Disclaimer**
+> **Tested on one mouse so far, the Logitech G PRO X 2 DEX**
 >
-> This tool has only been tested with a single mouse, the Logitech G PRO X 2 DEX
-> connected through its Lightspeed receiver. It should work with other HID++ 2.0 mice
-> that use onboard profile format 6 or newer, but nobody has verified that yet. Writes
-> to unverified models are at your own risk. Take a backup first, the tool makes that
-> easy.
+> Every feature in this project was built and verified against that single device, over
+> its Lightspeed receiver and over cable. No other model has been confirmed working by
+> anyone yet. Reading is safe on any Logitech HID++ mouse. Writing to an untested model
+> is at your own risk, so take a backup first. The app makes one for you automatically.
 
 ---
 
@@ -44,22 +43,140 @@ app reads and edits that memory directly.
 Everything is written into the mouse itself and verified by reading it back. The app
 never installs anything on your Mac.
 
+### Will it work with my mouse?
+
+| Hardware | Status |
+| --- | --- |
+| Logitech G PRO X 2 DEX, Lightspeed or wired | Verified, the whole tool was developed on it |
+| Other Logitech HID++ 2.0 mice, profile format 6 or newer | Untested. Reading is safe, writing is at your own risk |
+| Logitech mice with profile format 5 or older | Reading works, editing is blocked on purpose |
+| Logitech keyboards, headsets, non-Logitech devices | Not supported |
+
+Nothing is hardcoded for the DEX. The tool asks the mouse what it can do and works from
+that answer, which is why other models have a fair chance of working. That is still a
+prediction and not a test result. Before your first write on any other model, run
+`lomm info` to see what your device reports, then take a backup. Please open an issue
+with that output either way, working or not, so this table can grow.
+
+### Requirements
+
+- macOS 14 Sonoma or newer
+- Apple's command line tools, for building. Install with `xcode-select --install`
+- A Logitech mouse connected by cable, Lightspeed receiver or Bluetooth
+
+There is no signed download to grab. You build it yourself, which takes about a minute.
+G HUB does not need to be installed, and it should be quit if it is.
+
 ### Installing
 
-1. Install Apple's command line tools if you have not: `xcode-select --install`
-2. Download this repository.
-3. Run `./bundle.sh` in the repository folder. The app appears in `/Applications`.
+**1. Get the code**
 
-### Using it
+```sh
+git clone https://github.com/marco-vrinssen/Logitech-Onboard-Memory-Manager-macOS-Unofficial.git
+cd Logitech-Onboard-Memory-Manager-macOS-Unofficial
+```
 
-Open the app. Your mouse appears in the sidebar, its settings load automatically, and
-every change saves to the mouse the moment you make it. The status bar at the bottom
-tells you what is happening in plain language.
+**2. Build the app**
 
-A restore point is created automatically the first time the app sees your mouse. The
-Backup section restores it, or exports and imports settings as files. The same works
-from the terminal via `lomm backup` and `lomm restore`, the CLI installs with
-`./install.sh`.
+```sh
+./bundle.sh
+```
+
+That compiles a release build and puts **Logitech Onboard Memory Manager.app** into
+`/Applications`. It is signed ad hoc so macOS runs it locally without complaint. To
+install elsewhere, set `DEST`, for example `DEST=~/Applications ./bundle.sh`.
+
+**3. Install the command line tool, optional**
+
+```sh
+./install.sh
+```
+
+`lomm` goes into `/opt/homebrew/bin` when that folder is writable, otherwise into
+`~/.local/bin`. Override with `PREFIX=/usr/local/bin ./install.sh`. The script lists
+your connected devices when it finishes, so you see immediately whether the mouse was
+found.
+
+**Uninstalling**
+
+Delete the app from `/Applications`, delete the `lomm` binary, and delete
+`~/Library/Application Support/Logitech Onboard Memory Manager` if you also want the
+automatic restore points gone. Nothing else is ever written to your Mac.
+
+### Using the app
+
+Open the app with the mouse connected. It appears under **Devices** in the sidebar and
+its settings load by themselves. Every change is written into the mouse the moment you
+make it, so there is no save button. The status line at the bottom says what just
+happened.
+
+The first time the app sees a mouse, it stores a copy of the untouched settings in
+`~/Library/Application Support/Logitech Onboard Memory Manager`. That restore point is
+made before anything is changed, so there is always a way back.
+
+| Section | What you do there |
+| --- | --- |
+| **Sensitivity** | Up to five DPI stages. Each has its own lift sensitivity, meaning how high the mouse can leave the pad before tracking stops |
+| **Report Rate** | How often the mouse reports to the Mac, set separately for wireless and wired, up to 8000 Hz where the mouse allows it |
+| **Buttons** | Assign clicks, DPI switching or media keys per button. Switch to the **G-Shift** tab for the second layer, which applies while a button bound to G-Shift is held |
+| **Backup** | **Restore…** puts the original settings back. **Export…** writes the current settings to a file, **Import…** loads such a file onto this mouse |
+| **Stored Data** | Confirms the stored copy is undamaged and shows the raw bytes. Informational only, you never need it |
+
+Moving to another Mac needs nothing at all. The settings live in the mouse, so they
+follow the hardware. Export and Import exist for keeping copies, not for syncing.
+
+### Using the command line tool
+
+`lomm` does everything the app does, plus raw protocol access for exploring a new
+model. Run it with no arguments for the full usage text.
+
+**Look before you write**
+
+```sh
+lomm list          # which Logitech devices are connected
+lomm info          # what the mouse reports about its own memory
+lomm sensor        # current dpi stages, lift off and report rates
+lomm profile       # decoded profile name and every button binding
+```
+
+**Back up, always do this first**
+
+```sh
+lomm backup ~/mouse-original.json
+lomm restore ~/mouse-original.json   # asks you to type "yes" before it writes
+```
+
+**Change settings**
+
+```sh
+lomm set dpi 1 1600            # stage 1 to 1600 dpi
+lomm set lod 1 2               # stage 1 lift off to level 2
+lomm set rate wireless 2000    # 2000 Hz over the receiver
+lomm set button 4 back         # button 4 becomes Back
+lomm set button 4 forward --shift   # same button on the G-Shift layer
+lomm set name "Daily"          # rename the profile
+```
+
+Useful flags: `--device <n>` picks a device from `lomm list` when several are
+connected, `--profile <n>` chooses which profile to edit and defaults to 1, `--y <dpi>`
+sets a separate vertical resolution for `set dpi`.
+
+Every write is read back and compared byte for byte before `lomm` reports success.
+
+### If something goes wrong
+
+- **No device found.** Wireless mice sleep after about 60 seconds idle. Move the mouse
+  and run the command again. Discovery already waits and retries for roughly 12
+  seconds.
+- **`lomm info` says the mode is host.** The computer owns the settings, so the onboard
+  profile is inactive. Run `lomm mode onboard` to hand control back to the mouse. The
+  app does this by itself.
+- **G HUB is running.** Quit it. Two programs writing the same memory is asking for
+  trouble.
+- **Editing is refused.** Profile formats older than 6 are read only here, on purpose.
+  `lomm info` prints the format your mouse uses.
+- **Something looks wrong after a change.** Use **Restore…** in the app, or
+  `lomm restore` with your backup file.
 
 ---
 
